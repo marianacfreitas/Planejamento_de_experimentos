@@ -9,24 +9,46 @@ output:
 
 # O que são Blocos Completamente Aleatorizados
 
-- Explicar brevemente como funcionam os blocos completamente aleatorizados
-- Explicar que tem pressupostos de homocedasticidade e normalidade de resíduos
+Blocos completamente aleatorizados são uma forma de organizar experimentos para comparar os tratamentos, controlando fatores que poderiam atrapalhar os resultados.
+Primeiro, as unidades experimentais são agrupadas em blocos de forma homogênea e depois, dentro de cada bloco, os tratamentos são atribuídos aleatoriamente às unidades, garantindo que a comparação entre tratamentos seja justa dentro de cada bloco. Essa comparação é feita por meio de uma análise de variância (ANOVA).
+
+Como é analisado por ANOVA, os dados devem seguir alguns pressupostos para garantir que os resultados sejam válidos. Esses pressupostos são: Normalidade dos resíduos e Homocedasticidade
+Isso significa que os erros devem ser distribuídos de forma simétrica ao redor da média e a dispersão dos erros não pode mudar dependendo do bloco.
 
 ---
 
 # Aplicação
 
-- Apresentar o contexto dos dados que vamos utilizar, mostrando as variáveis
-- usamos o dataset do Kaggle Student Lifestyle dataset: https://www.kaggle.com/datasets/steve1215rogg/student-lifestyle-dataset
+O dataset "Student Lifestyle" reúne informações sobre os hábitos diários e o desempenho acadêmico de 2.000 estudantes, coletadas por meio de uma pesquisa realizada com um Google Form. Abrangendo o período acadêmico de agosto de 2023 a maio de 2024, os dados refletem majoritariamente os estilos de vida de estudantes da Índia.
+
+---
+
+# Aplicação
+O conjunto de dados contém as seguintes colunas:
+
+- student_id: Identificador único de cada estudante.
+- study_hours_per_day: Horas diárias dedicadas aos estudos.
+- extracurricular_hours_per_day: Horas diárias envolvidas em atividades extracurriculares.
+- sleep_hours_per_day: Horas diárias de sono.
+- social_hours_per_day: Horas diárias dedicadas à socialização.
+- physical_activity_hours_per_day: Horas diárias gastas em atividades físicas.
+- gpa: Nota média acumulada (GPA) dos estudantes.
+- stress_level: Nível de estresse relatado pelos participantes.
 
 ---
 
 # Aplicação
 
-- Falar que vamos usar a variável nível de estresse (stress_level) para agrupar em blocos e horas de socialização por dia (social_hours_per_day) como tratamento.
-- Falar que as horas de socialização foi classificada da seguinte forma: pouco: <=2h, moderado: <= 4h, muitos>4h
+A variável "stress_level" será utilizada para formar os blocos, agrupando os estudantes conforme seus níveis de estresse relatados. Já a "social_hours_per_day" será usada como o tratamento, analisando o impacto de diferentes níveis de socialização.
+
+Para facilitar a análise, as horas de socialização foram classificadas em três categorias:
+
+- Pouco: $\leq$ 2 horas por dia.
+- Moderado: $\leq$ 4 horas por dia.
+- Muito: $>$ 4 horas por dia.
 
 ```{r, message= FALSE, warning=FALSE, size= "footnotesize", echo=FALSE}
+#https://www.kaggle.com/datasets/steve1215rogg/student-lifestyle-dataset
 library(readr)
 library(dplyr)
 library(janitor)
@@ -40,13 +62,15 @@ dados <- dados |>
          Tratamento = cut(social_hours_per_day, breaks = 3, labels = c("Pouco", "Moderado", "Muito")))
 ```
 
-
 ---
 
 # Homocedasticidade
 
-- Explicar brevemente o que é homocedasticidade
-- Falar sobre como usamos o box-plot e teste de Barlett para avaliar a homocedasticidade
+A homocedasticidade é um pressuposto que afirma que a variância dos resíduos de um modelo é constante para todos os níveis dos fatores. Ou seja, a dispersão dos dados ao redor da média deve ser uniforme em todos os grupos ou categorias analisados.
+
+Para verificar se os dados atendem ao pressuposto de homocedasticidade, utilizamos duas abordagens complementares: o gráfico de box-plot e o teste de Bartlett.
+
+Com o box-plot, observamos as alturas das caixas e a extensão dos bigodes para avaliar se as variâncias aparentam ser semelhantes entre os grupos. Já o teste de Bartlett verifica se as variâncias são significativamente diferentes com um teste de hipótese, se o p-valor for pequeno, menor que 0.05, rejeitamos a hipótese de que as variâncias são iguais.
 
 ---
 
@@ -54,10 +78,16 @@ dados <- dados |>
 
 ```{r, message = FALSE, warning=FALSE, size= "footnotesize", echo=FALSE}
 ggplot(dados, aes(x = Tratamento, y = gpa, fill = Tratamento)) +
-  geom_boxplot() + theme_light()
+  geom_boxplot() +
+  theme_light() +
+  scale_fill_manual(values = c("#d694ad", "purple", "#7a0629"))  # Substitua pelas cores desejadas
 ```
 
-- Interpretar box plot
+---
+
+# Homocedasticidade
+
+Como as alturas das caixas nao apresentam grandes diferenças de tamanho, pode-se ter um indicativo do cumprimento do pressuposto de homocedasticidade.
 
 ---
 
@@ -76,14 +106,13 @@ print(resultado)
 
 ```
 
-- Interpretar o resultado do teste de Barlett
-- Usar ALPHA IGUAL A 0.1 para aceitarmos a homocedasticidade
+Como o valor-p não é pequeno o suficiente para rejeitar a hipótese nula, não há evidências estatísticas para afirmar que as variâncias dos grupos são diferentes.
 
 ---
 
 # ANOVA
 
--Explicar brevemente as hipóteses da Anova
+É uma técnica estatística usada para comparar as médias de mais de dois grupos e verificar se existem diferenças significativas entre elas. Testamos se as médias dos grupos são iguais.
 
 ```{r, message=FALSE, warning=FALSE, size= "footnotesize", echo=FALSE}
 
@@ -93,13 +122,22 @@ print(anova_table)
 
 ```
 
-- Interpretar a tabela Anova acima
+Os resultados indicam que tanto as horas de socialização quanto o nível de estresse afetam significativamente o desempenho acadêmico.
+O nível de estresse (Bloco) parece explicar uma porção muito maior da variabilidade (Sum Sq = 53.405) em comparação com o efeito das horas de socialização (Sum Sq = 1.354).
 
 ---
 
 # ANOVA
 
-- Explicar que o gráfico abaixo se trata da distribuição F com o F crítico e F calculado
+O gráfico abaixo apresenta a distribuição F, usada para testar a diferença entre as médias dos grupos na ANOVA:
+
+- Área azul clara: Região crítica onde rejeitamos a hipótese nula.
+- Linha azul (F Crítico): Limite superior da área crítica, determinado pelo nível de significância ($\alpha = 0,1$).
+- Linha vermelha (F Calculado): Valor obtido da ANOVA. Se estiver à direita do F crítico, indica que há diferença significativa entre os grupos e a hipótese nula é rejeitada.
+
+---
+
+# ANOVA
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE, size= "footnotesize"}
 # Graus de liberdade
@@ -142,50 +180,63 @@ legend("topright", legend = paste("F calculado =", round(f_calculado, 2)),
        col = "red", lty = 2, lwd = 2)
 ```
 
-- Explicar que H0 foi rejeitada (para um ALPHA IGUAL 0.1) e o que significa
+Como o valor obtido da ANOVA está à direita do F crítico, rejeitamos a hipótese nula. Portanto, há diferença entre os grupos.
 
 ---
 
 # Normalidade dos resíduos
 
--Explicar brevemente o que é a normalidade dos resíduos
+Significa que os resíduos (as diferenças entre os valores observados e os previstos pelo modelo) devem seguir uma distribuição normal.
 
 ```{r, message=FALSE, warning=FALSE, echo=FALSE, size= "footnotesize"}
 #Normalidade
 residuos <- anova_model$residuals
 
-#QQ-Plot
+# QQ-Plot com cores personalizadas
 ggplot(data.frame(residuos), aes(sample = residuos)) +
-  stat_qq() +
-  stat_qq_line() +
+  stat_qq(color = "#b53a69") +  # Cor azul suave para os pontos
+  stat_qq_line(color = "black", size = 0.8) +  # Cor vermelha suave para a linha
   ggtitle("QQplot dos Resíduos") +
   xlab("Quantis Teóricos (Normal)") +
-  ylab("Quantis da Amostra") + theme_light()
+  ylab("Quantis da Amostra") + 
+  theme_gray()
 
 ```
 
-- Interpretar QQ-Plot
+---
+
+# Normalidade dos resíduos
+
+Aparentemente os resíduos seguem uma distribuição normal, porém os resíduos de valores mais baixos se dispersam um pouco da linha teórica mas logo se ajustam.
 
 ---
 
-# Noramalidade dos resíduos
+# Normalidade dos resíduos
 
-- Apresentar brevemente o teste de Shapiro-Wilk
+O teste de Shapiro-Wilk  é utilizado para verificar a normalidade dos dados. Ele compara a distribuição dos dados com uma distribuição normal e testa a hipótese nula de que os dados seguem uma distribuição normal. Se o valor-p for menor que o nível de significância, rejeitamos a hipótese nula, indicando que resíduos não são normalmente distribuídos.
+
 
 ```{r, message=FALSE, warning=FALSE, size= "footnotesize", echo=FALSE}
 shapiro_wilk <- shapiro.test(residuos)
 print(shapiro_wilk)
 ```
 
-- Interpretar o output do teste
+Como o p-valor é muito baixo, rejeitamos a hipótese que os dados são normalmente distribuídos.
 
 ---
 
 # Teste de comparações múltiplas
 
-- Explicar o que é um teste de comparações múltiplas, quais suas hipóteses e falar sobre o teste de scheffé
+O teste de comparações múltiplas é utilizado após a ANOVA para identificar quais grupos específicos apresentam diferenças significativas entre si, quando a ANOVA indica uma diferença geral.
+Como a ANOVA apenas informa se existe diferença, mas não qual grupo é diferente dos outros, os testes de comparações múltiplas ajudam a realizar comparações entre os pares de grupos.
 
-- Falara que vamos aplicar o teste pois rejeitamos H0 na Anova
+Como rejeitamos a hipótese nula na ANOVA, usaremos esse teste.
+
+---
+
+# Teste de Scheffé
+
+O teste de Scheffé é um dos testes de comparações múltiplas. Ele é usado para fazer comparações entre as médias de diferentes grupos após uma ANOVA.
 
 ---
 
@@ -197,18 +248,13 @@ scheffe <- ScheffeTest(anova_model)
 print(scheffe)
 ```
 
-- Interpretar os resultados do teste, quais tratamentos tiveram diferença
-
 ---
 
 # Teste de Scheffé
 
-```{r, message=FALSE, warning=FALSE, echo=FALSE, size= "footnotesize"}
-# Plotando os resultados do teste de Scheffé
-plot(scheffe)
-```
+Conclusões: o tratamento (horas de socialização): Há diferenças significativas entre os grupos Muito e Pouco de socialização, e entre Muito e Moderado. 
+Já o Bloco (nível de estresse): As comparações entre os diferentes níveis de estresse (Low, Moderate e High) revelaram diferenças significativas, com os estudantes de baixo estresse apresentando desempenho distinto dos de estresse alto.
 
-- Interpretar o gráfico
 
 
 
