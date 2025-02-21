@@ -60,7 +60,7 @@ data <- data |>
       antibiotico == "A0" & vitamina == "B1" ~ "t01"
     )
   )
-with(data2, bartlett.test(modelo$residuals~tratamento))
+with(data, bartlett.test(modelo$residuals~tratamento))
 
 #Independencia dos erros
 #h_0: não há autocorrelação significativa entre os resíduos
@@ -76,6 +76,7 @@ abline(h=0)
 #Como todos os dois fatores e sua interação foram significativos, faremos o teste três vezes
 library(ExpDes.pt)
 with(data,fat2.dic(antibiotico,vitamina,aumento, mcomp="tukey"))
+# Um valor-p baixo (geralmente < 0,05) indica que a diferença entre os níveis é estatisticamente significativa
 
 
 ############### QUESTÃO 2
@@ -103,17 +104,33 @@ summary(ciro)
 model <- rsm(Y ~ FO(x1, x2), data = dados)
 summary(model)
 
-anova(model)
+#Comparando os dois modelos
+anova(model, ciro)
+#RSS(Residual Sum of Squares): Mede o erro do modelo - o modelo com interação apresenta um erro um pouco menor, mas quase igual
+#Sum of Sq (Soma dos Quadrados Explicada pelo Novo Termo): Diferença de erro entre os modelos - apenas 0.25, ou seja, a interação não explicou muita coisa
+#F: Mede a melhoria do ajuste ao adicionar a interação - 0.115, um valor muito pequeno
+#Valor-p: Mede se a melhoria no ajuste é estatisticamente significativa - 0.7483, um valor muito maior que 0.05 → Não há evidência estatística para manter a interação
+#Assim, modelo sem interação escolhido
 
 #Modelo linear inicial
 cat(sprintf("Y = %.4f + %.4f*x1 + %.4f*x2\n", model$coefficients[1], model$coefficients[2], model$coefficients[3]))
 
 #Gráficos de contorno
+
+#se o melhor modelo fosse com interação, apenas trocaríamos model por ciro nos modelos
+# os gráficos de cotorno com interação apresentam curvas e/ou ondulações, inclinações
+
 contour(model, ~x1+x2,
         image = TRUE,
         xlabs = c("X1", "X2")
         )
 points(dados$X1, dados$X2)
+#As cores indicam diferentes valores da variável resposta 𝑌
+#Y Verde → valores menores
+#Y Vermelho/laranja → valores maiores de 𝑌
+#As linhas com valores numéricos representam regiões de mesmo valor da resposta 
+#Quanto mais próximas essas linhas estão, maior a variação de Y em uma determinada região
+#Linhas inclinadas sugerem que ambas as variáveis afetam a resposta
 
 persp(model, ~x1+x2, contours = "colors",
       zlab = "Y",
@@ -141,29 +158,53 @@ modelo <- lm(rendimento ~ Temperatura*Catalisador*`Reação`*Ph, data =
               planej)
 
 anov <- aov(modelo)
-
 summary(anov)
+#uma grande soma dos quadrados indica que explica uma grande parte da variabilidade na resposta - sugere que é um fator importante no processo
+
+#retirando interações não significativas - mantendo apenas a interação de tempertaura e catalisador
+modelo2 <- lm(rendimento ~ Temperatura*Catalisador + `Reação` +Ph, data =
+               planej)
+anov2 <- aov(modelo2)
+summary(anov2)
+#grande soma dos quadrados, baixo valor-p e a alta estatística F um fator importante
+#quadrado médio dos resíduos (1,6) é relativamente baixo, o que indica que o modelo explica a maior parte da variabilidade nos dados
+#ph tem valor p maior que 0.05 e explica pouca variabilidade do modelo, vamos retirá-lo
+
+#retirando ph
+modelo3 <- lm(rendimento ~ Temperatura*Catalisador + `Reação`, data =
+                planej)
+anov3 <- aov(modelo3)
+summary(anov3)
+
+anova(modelo, modelo2, modelo3) #indica que o modelo 2 tem menos RSS, modelo 1 é saturado
+# o modelo 2 é  final
 
 # Testando normalidade dos resíduos
-shapiro.test(modelo$residuals)
+shapiro.test(modelo2$residuals)
 
 # Testando homovedasticidade
-with(dados, bartlett.test(anova$residuals~Temperatura))
-with(dados, bartlett.test(anova$residuals~Catalisador))
-with(dados, bartlett.test(anova$residuals~Reação))
-with(dados, bartlett.test(anova$residuals~Ph))
+# Extrair os resíduos do modelo ANOVA
+residuos <- residuals(modelo2)
+
+# Realizar o teste de Bartlett
+bartlett.test(residuos ~ Temperatura, data = planej)
+bartlett.test(residuos ~ Catalisador, data = planej)
+bartlett.test(residuos ~ `Reação`, data = planej)
+bartlett.test(residuos ~ Ph, data = planej)
 
 # como não temos repetições, cada observação é um nível diferente
 tratamentos<-rep(c(paste("T",1:16)))
-with(dados, bartlett.test(anova$residuals~tratamentos))
+bartlett.test(residuos ~ tratamentos, data = planej)
 
 # Testando independência dos resíduos
-lmtest::dwtest(anov)
+lmtest::dwtest(anov2)
 
 #Teste de comparações
 library(ExpDes.pt)
 # Se você quiser fazer comparações múltiplas com Tukey
 library(multcomp)
-tukey <- glht(modelo, linfct = mcp(Temperatura = "Tukey", Catalisador = "Tukey",
-                                   `Reação` = "Tukey", Ph = "Tukey"))
-summary(tukey)
+# Realizando o teste de Tukey
+teste_tukey <- glht(modelo2, linfct = mcp(Temperatura = "Tukey", Catalisador = "Tukey", `Reação` = "Tukey", Ph = "Tukey"))
+
+# Resumo do teste
+summary(teste_tukey)
