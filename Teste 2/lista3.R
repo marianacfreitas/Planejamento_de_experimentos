@@ -62,6 +62,10 @@ data <- data |>
   )
 with(data, bartlett.test(modelo$residuals~tratamento))
 
+library(ggplot2)
+ggplot(data, aes(x=tratamento, y=aumento, fill=tratamento)) +
+  geom_boxplot()
+
 #Independencia dos erros
 #h_0: não há autocorrelação significativa entre os resíduos
 #p-valor > \alpha indica que não rejeitamos h_0
