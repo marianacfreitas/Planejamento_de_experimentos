@@ -1,0 +1,81 @@
+---
+title: "Planejamento de Experimentos 2K"
+author: "Mariana Freitas e Aline Pires"
+date: ' '
+output:
+  beamer_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# O que são Experimentos 2K?
+
+É um tipo de experimento que envolve k fatores, cada um com dois níveis, sendo amplamente utilizado para estudar o efeito de múltiplos fatores e suas interações em uma resposta de interesse. Como esse tipo de experimento pode ser aplicado a diversos números de fatores, o número total de combinações dos níveis (número de tratamentos) é dado por $2^K$.
+
+---
+
+# Como funciona?
+
+Tendo os dados do experimento 2K coletados e organizados, de acordo com as combinações e os números de repetições, é hora de analisar os efeitos dos fatores principais e de suas interações. Para isso, vamos construir uma tabela ANOVA, na qual vamos utilizar um teste F para definir se os efeitos são estatisticamente significativos. 
+
+---
+
+# Aplicação
+
+O dataset "Student Lifestyle" reúne informações sobre os hábitos diários e o desempenho acadêmico de 2.000 estudantes, coletadas por meio de uma pesquisa realizada com um Google Form. Abrangendo o período acadêmico de agosto de 2023 a maio de 2024, os dados refletem majoritariamente os estilos de vida de estudantes da Índia.
+
+---
+
+# Aplicação
+O conjunto de dados contém as seguintes colunas:
+
+- student_id: Identificador único de cada estudante.
+- study_hours_per_day: Horas diárias dedicadas aos estudos.
+- extracurricular_hours_per_day: Horas diárias envolvidas em atividades extracurriculares.
+- sleep_hours_per_day: Horas diárias de sono.
+- social_hours_per_day: Horas diárias dedicadas à socialização.
+- physical_activity_hours_per_day: Horas diárias gastas em atividades físicas.
+- gpa: Nota média acumulada (GPA) dos estudantes.
+- stress_level: Nível de estresse relatado pelos participantes.
+
+---
+
+# Aplicação 
+
+Aqui, vamos usar apenas as variáveis `sleep_hours_per_day` e `physical_activity_hours_per_day` e `stress_level` como fatores na nossa análise dos efeitos na variável `gpa`. E, como são as duas primeiras são variáveis contínuas, vamos categorizá-las em dois grupos baseados nos seus quartis.
+
+- Baixo tempo de sono: <= 6.5 horas
+- Alto tempo de sono > 6.5 horas
+- Baixo tempo de atividade física: <= 2 horas
+- Alto tempo de atividade física: > 2 horas
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+library(readr)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+
+dados <- read_csv("student_lifestyle_dataset.csv") |> clean_names()
+
+# Categorizando as variáveis
+dados <- dados |>
+  select(student_id, stress_level, physical_activity_hours_per_day, sleep_hours_per_day, gpa) |>
+  mutate(stress = case_when(
+    stress_level == "High" ~ "Alto",
+    stress_level %in% c("Moderate", "Low") ~ "Baixo"
+  ),
+  sono = case_when(
+    sleep_hours_per_day <= 6.5 ~ "Baixo",
+    sleep_hours_per_day > 6.5 ~ "Alto"
+  ),
+  exercicio = case_when(
+    physical_activity_hours_per_day <= 2 ~ "Baixo",
+    physical_activity_hours_per_day >2 ~ "Alto"
+  )
+  ) |>
+  select(student_id, stress, sono, exercicio, gpa)
+```
+
