@@ -45,10 +45,10 @@ O conjunto de dados contém as seguintes colunas:
 
 # Aplicação 
 
-Aqui, vamos usar apenas as variáveis `sleep_hours_per_day` e `physical_activity_hours_per_day` e `stress_level` como fatores na nossa análise dos efeitos na variável `gpa`. E, como são as duas primeiras são variáveis contínuas, vamos categorizá-las em dois grupos baseados nos seus quartis.
+Aqui, vamos usar apenas as variáveis `study_hours_per_day` e `physical_activity_hours_per_day` e `stress_level` como fatores na nossa análise dos efeitos na variável `gpa`. E, como são as duas primeiras são variáveis contínuas, vamos categorizá-las em dois grupos baseados nos seus quartis.
 
-- Baixo tempo de sono: <= 6.5 horas
-- Alto tempo de sono > 6.5 horas
+- Baixo tempo de estudo: <= 6.5 horas
+- Alto tempo de estudo > 6.5 horas
 - Baixo tempo de atividade física: <= 2 horas
 - Alto tempo de atividade física: > 2 horas
 
@@ -62,32 +62,163 @@ dados <- read_csv("student_lifestyle_dataset.csv") |> clean_names()
 
 # Categorizando as variáveis
 dados <- dados |>
-  select(student_id, stress_level, physical_activity_hours_per_day, sleep_hours_per_day, gpa) |>
+  select(student_id, stress_level, physical_activity_hours_per_day, study_hours_per_day, gpa) |>
   mutate(stress = case_when(
     stress_level == "High" ~ "Alto",
     stress_level %in% c("Moderate", "Low") ~ "Baixo"
   ),
-  sono = case_when(
-    sleep_hours_per_day <= 6.5 ~ "Baixo",
-    sleep_hours_per_day > 6.5 ~ "Alto"
+  estudo = case_when(
+    study_hours_per_day <= 7 ~ "Baixo",
+    study_hours_per_day > 7 ~ "Alto"
   ),
   exercicio = case_when(
     physical_activity_hours_per_day <= 2 ~ "Baixo",
     physical_activity_hours_per_day >2 ~ "Alto"
   )
   ) |>
-  select(student_id, stress, sono, exercicio, gpa)
+  select(student_id, stress, estudo, exercicio, gpa)
+```
+
+---
+
+# ANOVA
+
+Agora, elaboramos o modelo levando em conta as interações entre os fatores e contruímos a tabela ANOVA abaixo. A tabela ANOVA irá nos auxiliar para comparar as médias dos grupos formado pelos fatores principais e pela interação desses fatores, verificando se existem diferenças significativas entre elas. 
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+modelo <- lm(gpa ~ stress * estudo * exercicio, data = dados)
+tabela_anova <- anova(modelo)
+print(tabela_anova)
 ```
 
 
-```{r}
-# Ajustar o modelo linear
-modelo <- lm(gpa ~ study_level * sleep_level * activity_level, data = dados)
 
-# Realizar a ANOVA
-anova_resultado <- anova(modelo)
-print(anova_resultado)
+---
 
-# Fazer box plot!!!!!!
+# ANOVA
+
+Observando a soma de quadrados (Sum sq), é possível perceber que os fatores stress, horas de estudo diária e a interação entre esses dois fatores são os fatores que explicam uma porção maior da variabilidade do modelo. As horas de exercício diárias explicam uma porção menor da variância e o restante das interações explica bem pouco.
+
+Em seguida, é necessário realizar o teste F para verificar se os efeitos dos fatores principais e das interações são estatisticamente significativos. Para todos os efeitos e interaçõe, teremos o F crítico de 3.846131.
+
+---
+
+# Teste F
+
+- $H_0$: não há efeito significativo do fator/interação.
+- $H_1$: há efeito significativo do fator/interação.
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE, size= "footnotesize"}
+# Graus de liberdade
+# Valor crítico da tabela F
+f_critico <- qf(0.05, df1 = 1, df2 = 1992, lower.tail = FALSE)
+
+#Valores de F calculados
+f_stress <- tabela_anova["stress", "F value"]
+f_estudo <- tabela_anova["estudo", "F value"]
+f_exercicio <- tabela_anova["exercicio", "F value"]
+f_stress_estudo <- tabela_anova["stress:estudo", "F value"]
+f_stress_exercicio <- tabela_anova["stress:exercicio", "F value"]
+f_estudo_exercicio <- tabela_anova["estudo:exercicio", "F value"]
+f_stress_estudo_exercicio <- tabela_anova["stress:estudo:exercicio", "F value"]
+
+# Criar um data frame com os valores de F calculado e F crítico
+tabela_F <- data.frame(
+  F_Calculado = c(f_stress, f_estudo, f_exercicio, f_stress_estudo, f_stress_exercicio, f_estudo_exercicio, f_stress_estudo_exercicio),
+  F_Critico = rep(3.84, 7)  # F crítico é o mesmo para todos
+)
+
+# Adicionar nomes das fontes (fatores e interações)
+rownames(tabela_F) <- c(
+  "stress",
+  "estudo",
+  "exercicio",
+  "stress:estudo",
+  "stress:exercicio",
+  "estudo:exercicio",
+  "stress:estudo:exercicio"
+)
+
+# Exibir a tabela
+print(tabela_F)
+
 ```
+
+Assim, concluímos que stress, horas diárias de estudo, horas diárias de exerício e a interação entre stress e estudo têm efito significativo na GPA.
+
+---
+
+# Análise gráfica
+
+Podemos observar esse efeito graficamente:
+
+```{r, message=FALSE, warning=F, echo=FALSE}
+
+library(ggplot2)
+library(patchwork)
+
+
+# Boxplot para stress
+b1 <- ggplot(dados, aes(x = stress, y = gpa, fill = stress)) +
+  geom_boxplot() +
+  labs(title = "GPA por Nível de Stress",
+       x = "Nível de stress",
+       y = "GPA") +
+  theme_minimal()
+
+# Boxplot para stress
+b2 <- ggplot(dados, aes(x = estudo, y = gpa, fill = estudo)) +
+  geom_boxplot() +
+  labs(title = "GPA por Nível de Estudo",
+       x = "Nível de estudo",
+       y = "GPA") +
+  theme_minimal()
+
+# Boxplot para exercicio
+b3 <- ggplot(dados, aes(x = exercicio, y = gpa, fill = exercicio)) +
+  geom_boxplot() +
+  labs(title = "GPA por Nível de Exercício",
+       x = "Nível de exercício",
+       y = "GPA") +
+  theme_minimal()
+
+# Interação entre stress e estudo
+
+dados2 <- dados |>
+  mutate(
+    stress_estudo = case_when(
+      stress == "Alto" & estudo == "Alto" ~ "Stress alto,\n estudo alto",
+      stress == "Alto" & estudo == "Baixo" ~ "Stress alto,\n estudo baixo",
+      stress == "Baixo" & estudo == "Alto" ~ "Stress baixo,\n estudo alto",
+      stress == "Baixo" & estudo == "Baixo" ~ "Stress baixo,\n estudo baixo"
+  ))
+
+b4 <- ggplot(dados2, aes(x = stress_estudo, y = gpa, fill = stress_estudo)) +
+  geom_boxplot() +
+  labs(title = "GPA por Interação entre Stress e Estudo",
+       x = "Nível de stress:estudo",
+       y = "GPA") +
+  theme_minimal()
+
+# Combinar os boxplots em uma grade 2x2
+combined_plots <- (b1 + b2) / (b3 + b4)
+
+# Exibir o layout combinado
+print(combined_plots)
+
+```
+
+---
+
+# O que falta
+
+- Testar os pressupostos
+- Teste de turkey ou outro de comparações múltiplas
+
+---
+
+
+
+
+
 
