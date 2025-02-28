@@ -79,3 +79,15 @@ dados <- dados |>
   select(student_id, stress, sono, exercicio, gpa)
 ```
 
+
+```{r}
+# Ajustar o modelo linear
+modelo <- lm(gpa ~ study_level * sleep_level * activity_level, data = dados)
+
+# Realizar a ANOVA
+anova_resultado <- anova(modelo)
+print(anova_resultado)
+
+# Fazer box plot!!!!!!
+```
+
