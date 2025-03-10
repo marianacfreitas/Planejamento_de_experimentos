@@ -45,7 +45,7 @@ O conjunto de dados contém as seguintes colunas:
 
 # Aplicação 
 
-Aqui, vamos usar apenas as variáveis `study_hours_per_day` e `physical_activity_hours_per_day` e `stress_level` como fatores na nossa análise dos efeitos na variável `gpa`. E, como são as duas primeiras são variáveis contínuas, vamos categorizá-las em dois grupos baseados nos seus quartis.
+Aqui, vamos usar apenas as variáveis `study_hours_per_day`, `physical_activity_hours_per_day` e `stress_level` como fatores na nossa análise dos efeitos na variável `gpa`. E, como são as duas primeiras são variáveis contínuas, vamos categorizá-las em dois grupos baseados nos seus quartis.
 
 - Baixo tempo de estudo: <= 6.5 horas
 - Alto tempo de estudo > 6.5 horas
@@ -58,11 +58,12 @@ library(dplyr)
 library(janitor)
 library(ggplot2)
 
+# Carregando os dados e limpando os nomes das colunas
 dados <- read_csv("student_lifestyle_dataset.csv") |> clean_names()
 
 # Categorizando as variáveis
 dados <- dados |>
-  select(student_id, stress_level, physical_activity_hours_per_day, study_hours_per_day, gpa) |>
+  dplyr::select(student_id, stress_level, physical_activity_hours_per_day, study_hours_per_day, gpa) |>
   mutate(stress = case_when(
     stress_level == "High" ~ "Alto",
     stress_level %in% c("Moderate", "Low") ~ "Baixo"
@@ -73,10 +74,10 @@ dados <- dados |>
   ),
   exercicio = case_when(
     physical_activity_hours_per_day <= 2 ~ "Baixo",
-    physical_activity_hours_per_day >2 ~ "Alto"
+    physical_activity_hours_per_day > 2 ~ "Alto"
   )
   ) |>
-  select(student_id, stress, estudo, exercicio, gpa)
+  dplyr::select(student_id, stress, estudo, exercicio, gpa)
 ```
 
 ---
@@ -99,7 +100,7 @@ print(tabela_anova)
 
 Observando a soma de quadrados (Sum sq), é possível perceber que os fatores stress, horas de estudo diária e a interação entre esses dois fatores são os fatores que explicam uma porção maior da variabilidade do modelo. As horas de exercício diárias explicam uma porção menor da variância e o restante das interações explica bem pouco.
 
-Em seguida, é necessário realizar o teste F para verificar se os efeitos dos fatores principais e das interações são estatisticamente significativos. Para todos os efeitos e interaçõe, teremos o F crítico de 3.846131.
+Em seguida, é necessário realizar o teste F para verificar se os efeitos dos fatores principais e das interações são estatisticamente significativos. Para todos os efeitos e interações, teremos o F crítico de 3.846131.
 
 ---
 
@@ -210,15 +211,86 @@ print(combined_plots)
 
 ---
 
-# O que falta
+# Verificação de pressupostos
 
-- Testar os pressupostos
-- Teste de turkey ou outro de comparações múltiplas
+A ANOVA assume alguns pressupostos que devemos verificar para ver se as análises estão corretas. São eles:
+- Normalidade dos resíduos
+- Homocedasticidade
+- Independência dos erros
+---
+
+# Normalidade dos resíduos
+
+Para isso deve-se usar o teste de Shapiro-Wilk nos resíduos do modelo.
+- $H_0$: Os dados seguem uma distribuição normal. 
+- $H_1$: Os dados não seguem uma distribuição normal.
+
+```{r, message=FALSE, warning=F, echo=FALSE}
+residuos <- residuals(modelo)
+
+shapiro.test(residuos)
+```
+Como o p-valor deu 0.6284, não rejeitamos a hipótese de normalidade, ou seja, podemos assumir que os resíduos seguem uma distribuição normal. 
+O primeiro pressuposto da ANOVA foi atendido.
 
 ---
 
+# Homocedasticidade
+
+Para verificar se a variância entre os grupos são homogêneas, podemos utilizar o teste de Levene que funciona bem para experimentos fatoriais. Ele testa se os grupos, definidos pelos fatores, têm variâncias homogêneas.
+- $H_0$: Todas as populações têm a mesma variância. 
+- $H_1$: Pelo menos uma população tem variância diferente das outras.
 
 
+```{r, message=FALSE, warning=FALSE}
+library(car)
+leveneTest(gpa ~ stress * estudo * exercicio, data = dados)
+```
+Como o p-valor do teste de Levene deu maior que 0.05, não há evidências de heterocedasticidade, pois não rejeitamos $H_0$. Então assumimos que o pressuposto de homocedasticidade está sendo atendido.
 
+---
 
+# Independênciados erros
 
+Para testar se os erros são independentes, podemos utilizar o teste de Durbin-Watson, onde as hipóteses são:
+- $H_0$: Os erros são independetes. 
+- $H_1$: Os erros não são independentes.
+
+```{r, message=FALSE, warning=FALSE}
+library(lmtest)
+# Teste de Durbin-Watson
+dwtest(modelo)
+```
+Como o p-valor deu 0.7504, não rejeitamos a hipótese de que os resíduos são independentes, portanto, temos altas evidências que os resíduos não são correlacionados.
+
+---
+
+# Teste de turkey
+
+Realizamos o teste de Tukey para identificar diferenças significativas entre os grupos.
+
+A combinação que tem o maior e menor gpa médio são, respectivamente:
+- Alto Estresse + Alto Estudo + Baixo Exercício gpa igual a 3.377.
+- Baixo Estresse + Baixo Estudo + Alto Exercício gpa igual a 2.881.
+
+Percebemos que estudar mais parece ser o fator mais importante para um GPA alto, mesmo sob alto estresse, além disso exercício alto pode não ser tão benéfico para o GPA em combinação com alto estudo e alto estresse. 
+
+O estresse alto parece ter um impacto positivo no GPA quando combinado com alto estudo, independentemente do nível de exercício.
+
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Criando o fator de interação
+dados$interacao <- interaction(dados$stress, dados$estudo, dados$exercicio)
+# Ajustando o modelo ANOVA
+modelo <- lm(gpa ~ interacao, data = dados)
+
+# Aplicando o teste de Tukey
+library(agricolae)
+tukey_result <- HSD.test(modelo, "interacao", group = TRUE, console = TRUE)
+
+# Exibindo os resultados
+print(tukey_result)
+```
+
+---
